@@ -3,6 +3,13 @@
 import { FormEvent, useOptimistic, useState, useTransition } from 'react';
 import { ChatMessage } from '@/lib/types';
 
+class FatalStreamError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'FatalStreamError';
+  }
+}
+
 const MAX_STREAM_ATTEMPTS = 3;
 
 function parseSseEvents(buffer: string) {
@@ -176,9 +183,7 @@ export function ChatBox({ initialMessages }: { initialMessages: ChatMessage[] })
             }
 
             if (payload.error) {
-              const err = new Error(payload.error);
-              (err as Error & { fatal?: boolean }).fatal = true;
-              throw err;
+              throw new FatalStreamError(payload.error);
             }
 
             if (payload.token) {
@@ -200,7 +205,7 @@ export function ChatBox({ initialMessages }: { initialMessages: ChatMessage[] })
           }
         }
       } catch (error) {
-        if (attempt === MAX_STREAM_ATTEMPTS - 1 || (error as Error & { fatal?: boolean }).fatal) {
+        if (attempt === MAX_STREAM_ATTEMPTS - 1 || error instanceof FatalStreamError) {
           throw error;
         }
         continue;

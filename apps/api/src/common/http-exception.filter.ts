@@ -25,10 +25,11 @@ export class ApiExceptionFilter implements ExceptionFilter {
 
     if (exception instanceof ServiceError) {
       const status =
-        exception.code === 'REDIS_UNAVAILABLE' ||
-        exception.code === 'LLM_UNAVAILABLE'
-          ? HttpStatus.SERVICE_UNAVAILABLE
-          : HttpStatus.INTERNAL_SERVER_ERROR;
+        exception.code === 'LLM_RATE_LIMITED'
+          ? HttpStatus.TOO_MANY_REQUESTS
+          : exception.code === 'REDIS_UNAVAILABLE' || exception.code === 'LLM_UNAVAILABLE'
+            ? HttpStatus.SERVICE_UNAVAILABLE
+            : HttpStatus.INTERNAL_SERVER_ERROR;
 
       this.logger.error(exception.message, this.describeCause(exception.cause));
       response.status(status).json({

@@ -46,7 +46,7 @@ export class LlmService {
     const systemText = this.buildSystemPrompt();
 
     this.logger.log('streamGenerateContent: start');
-    const streamResponse = await this.fetchJsonOrStream(
+    const streamResponse = await this.post(
       `${this.apiBase}/${this.model}:generateContent?alt=sse&key=${this.apiKey}`,
       {
         contents,
@@ -129,7 +129,7 @@ export class LlmService {
     return contents;
   }
 
-  private async fetchJsonOrStream(url: string, body: unknown): Promise<Response> {
+  private async post(url: string, body: unknown): Promise<Response> {
     const abort = new AbortController();
     const timer = setTimeout(() => abort.abort(), 30_000);
 

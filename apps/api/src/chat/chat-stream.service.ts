@@ -1,9 +1,6 @@
-import {
-  GoneException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import type { Request, Response } from 'express';
+import { Turn } from '../common/chat.types';
 import { ServiceError } from '../common/service-error';
 import { LlmService } from '../llm/llm.service';
 import { SessionService } from '../sessions/session.service';
@@ -29,17 +26,8 @@ export class ChatStreamService {
       return;
     }
 
-    let history;
-    try {
-      history = await this.sessionService.listTurns(sessionId);
-      await this.sessionService.appendUserTurn(sessionId, message);
-    } catch (error) {
-      if (error instanceof NotFoundException || error instanceof GoneException) {
-        throw error;
-      }
-
-      throw error;
-    }
+    const history: Turn[] = await this.sessionService.listTurns(sessionId);
+    await this.sessionService.appendUserTurn(sessionId, message);
 
     this.prepareSseHeaders(res);
     await this.streamStateService.create(sessionId, message);
