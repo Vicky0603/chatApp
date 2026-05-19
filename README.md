@@ -65,6 +65,7 @@ docker compose up --build
 That builds both workspaces and starts Redis, NestJS on port `3001`, and Next.js on port `3000`.
 
 For Docker Compose, the web container talks to the API at `http://api:3001` internally. Do not set `NESTJS_BASE_URL=http://localhost:3001` inside the web container, or the BFF will fail with `ECONNREFUSED`.
+For Docker Compose, the API container talks to Redis at `redis://redis:6379` internally. Do not use `REDIS_URL=redis://localhost:6379` inside the API container, or session creation will fail with connection errors.
 
 ## Sample Q&A
 

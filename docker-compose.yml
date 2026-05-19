@@ -12,7 +12,7 @@ services:
       - .env
     environment:
       NESTJS_PORT: ${NESTJS_PORT:-3001}
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      REDIS_URL: redis://redis:6379
     depends_on:
       - redis
     ports:

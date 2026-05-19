@@ -14,6 +14,7 @@ import {
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { LlmService } from '../llm/llm.service';
+import { ServiceError } from '../common/service-error';
 import { SessionService } from '../sessions/session.service';
 import { StreamStateService } from '../streams/stream-state.service';
 import { MessageDto } from './dto/message.dto';
@@ -120,10 +121,11 @@ export class ChatController {
       if (!clientClosed) {
         res.write(`data: ${JSON.stringify({ done: true, turnIndex })}\n\n`);
       }
-    } catch {
-      await this.streamStateService.fail(sessionId, 'LLM unavailable');
+    } catch (error) {
+      const errorMessage = this.clientErrorMessage(error);
+      await this.streamStateService.fail(sessionId, errorMessage);
       if (!clientClosed) {
-        res.write(`data: ${JSON.stringify({ error: 'LLM unavailable' })}\n\n`);
+        res.write(`data: ${JSON.stringify({ error: errorMessage })}\n\n`);
       }
     } finally {
       if (!clientClosed) {
@@ -162,7 +164,16 @@ export class ChatController {
     let nextIndex = lastEventId + 1;
 
     while (Date.now() - startedAt < RESUME_TIMEOUT_MS) {
-      const state = await this.streamStateService.get(sessionId);
+      let state;
+      try {
+        state = await this.streamStateService.get(sessionId);
+      } catch (error) {
+        res.write(
+          `data: ${JSON.stringify({ error: this.clientErrorMessage(error) })}\n\n`,
+        );
+        res.end();
+        return;
+      }
       if (!state) {
         res.write(`data: ${JSON.stringify({ error: 'LLM unavailable' })}\n\n`);
         res.end();
@@ -186,7 +197,9 @@ export class ChatController {
       }
 
       if (state.status === 'error') {
-        res.write(`data: ${JSON.stringify({ error: 'LLM unavailable' })}\n\n`);
+        res.write(
+          `data: ${JSON.stringify({ error: state.error ?? 'LLM unavailable' })}\n\n`,
+        );
         res.end();
         return;
       }
@@ -200,5 +213,19 @@ export class ChatController {
 
   private sleep(durationMs: number) {
     return new Promise((resolve) => setTimeout(resolve, durationMs));
+  }
+
+  private clientErrorMessage(error: unknown) {
+    if (error instanceof ServiceError) {
+      if (error.code === 'REDIS_UNAVAILABLE') {
+        return 'Session store unavailable';
+      }
+
+      if (error.code === 'LLM_UNAVAILABLE') {
+        return 'LLM unavailable';
+      }
+    }
+
+    return 'Internal server error';
   }
 }

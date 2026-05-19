@@ -1,4 +1,5 @@
-import { Injectable, ServiceUnavailableException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
+import { ServiceError } from '../common/service-error';
 import { DepartmentInfoService } from '../tools/department-info.service';
 import { Turn } from '../common/chat.types';
 
@@ -50,7 +51,7 @@ export class LlmService {
 
   async *streamReply(input: LlmInput): AsyncIterable<string> {
     if (!this.apiKey) {
-      throw new ServiceUnavailableException('LLM unavailable');
+      throw new ServiceError('LLM_UNAVAILABLE', 'LLM unavailable');
     }
 
     if (!this.isAllowedTopic(input.newMessage)) {
@@ -85,7 +86,7 @@ export class LlmService {
     );
 
     if (!streamResponse.body) {
-      throw new ServiceUnavailableException('LLM unavailable');
+      throw new ServiceError('LLM_UNAVAILABLE', 'LLM unavailable');
     }
 
     const decoder = new TextDecoder();
@@ -119,7 +120,7 @@ export class LlmService {
     }
 
     if (finalFinishReason !== 'STOP') {
-      throw new ServiceUnavailableException('LLM unavailable');
+      throw new ServiceError('LLM_UNAVAILABLE', 'LLM unavailable');
     }
   }
 
@@ -169,7 +170,7 @@ export class LlmService {
       const payload = (await response.json()) as GeminiResponse;
       const candidate = payload.candidates?.[0];
       if (!candidate || candidate.finishReason !== 'STOP') {
-        throw new ServiceUnavailableException('LLM unavailable');
+        throw new ServiceError('LLM_UNAVAILABLE', 'LLM unavailable');
       }
 
       const parts = candidate.content?.parts ?? [];
@@ -211,12 +212,12 @@ export class LlmService {
       return { contents };
     }
 
-    throw new ServiceUnavailableException('LLM unavailable');
+    throw new ServiceError('LLM_UNAVAILABLE', 'LLM unavailable');
   }
 
   private runTool(name: string, args: Record<string, unknown>) {
     if (name !== 'get_department_info') {
-      throw new ServiceUnavailableException('LLM unavailable');
+      throw new ServiceError('LLM_UNAVAILABLE', 'LLM unavailable');
     }
 
     return {
@@ -264,16 +265,23 @@ export class LlmService {
   }
 
   private async fetchJsonOrStream(url: string, body: unknown): Promise<Response> {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    });
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
+    } catch (error) {
+      throw new ServiceError('LLM_UNAVAILABLE', 'LLM unavailable', error);
+    }
 
     if (!response.ok) {
-      throw new ServiceUnavailableException('LLM unavailable');
+      throw new ServiceError('LLM_UNAVAILABLE', 'LLM unavailable', {
+        status: response.status,
+      });
     }
 
     return response;
