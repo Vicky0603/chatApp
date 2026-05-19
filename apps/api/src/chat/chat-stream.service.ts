@@ -171,7 +171,9 @@ export class ChatStreamService {
       if (error.code === 'REDIS_UNAVAILABLE') {
         return 'Session store unavailable';
       }
-
+      if (error.code === 'LLM_RATE_LIMITED') {
+        return 'Rate limit exceeded — please wait a moment and try again';
+      }
       if (error.code === 'LLM_UNAVAILABLE') {
         return 'LLM unavailable';
       }

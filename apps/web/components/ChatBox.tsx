@@ -94,10 +94,10 @@ export function ChatBox({ initialMessages }: { initialMessages: ChatMessage[] })
       });
       await streamAssistantReply(messageText, assistantMessage.id);
       setIsStreaming(false);
-    } catch {
+    } catch (error) {
       setPendingUser(null);
       setIsStreaming(false);
-      setToast('Request failed');
+      setToast(error instanceof Error ? error.message : 'Request failed');
       startTransition(() => {
         setMessages((current) =>
           current.filter(
@@ -176,7 +176,9 @@ export function ChatBox({ initialMessages }: { initialMessages: ChatMessage[] })
             }
 
             if (payload.error) {
-              throw new Error(payload.error);
+              const err = new Error(payload.error);
+              (err as Error & { fatal?: boolean }).fatal = true;
+              throw err;
             }
 
             if (payload.token) {
@@ -198,7 +200,7 @@ export function ChatBox({ initialMessages }: { initialMessages: ChatMessage[] })
           }
         }
       } catch (error) {
-        if (attempt === MAX_STREAM_ATTEMPTS - 1) {
+        if (attempt === MAX_STREAM_ATTEMPTS - 1 || (error as Error & { fatal?: boolean }).fatal) {
           throw error;
         }
         continue;

@@ -47,7 +47,7 @@ export class LlmService {
 
     this.logger.log('streamGenerateContent: start');
     const streamResponse = await this.fetchJsonOrStream(
-      `${this.apiBase}/${this.model}:streamGenerateContent?alt=sse&key=${this.apiKey}`,
+      `${this.apiBase}/${this.model}:generateContent?alt=sse&key=${this.apiKey}`,
       {
         contents,
         systemInstruction: {
@@ -151,6 +151,9 @@ export class LlmService {
 
     if (!response.ok) {
       this.logger.error(`Gemini returned HTTP ${response.status}`);
+      if (response.status === 429) {
+        throw new ServiceError('LLM_RATE_LIMITED', 'Rate limit exceeded');
+      }
       throw new ServiceError('LLM_UNAVAILABLE', 'LLM unavailable', {
         status: response.status,
       });
