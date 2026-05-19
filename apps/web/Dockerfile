@@ -16,4 +16,4 @@ RUN npm run build --workspace @domain-chat/web
 
 EXPOSE 3000
 
-CMD ["node_modules/.bin/next", "start", "--hostname", "0.0.0.0"]
+CMD ["node_modules/.bin/next", "start", "apps/web", "--hostname", "0.0.0.0"]
