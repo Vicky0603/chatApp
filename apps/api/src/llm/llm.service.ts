@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ServiceError } from '../common/service-error';
 import { DepartmentInfoService } from '../tools/department-info.service';
 import { Turn } from '../common/chat.types';
@@ -10,14 +10,6 @@ interface LlmInput {
 
 interface GeminiContentPart {
   text?: string;
-  functionCall?: {
-    name: string;
-    args: Record<string, unknown>;
-  };
-  functionResponse?: {
-    name: string;
-    response: Record<string, unknown>;
-  };
 }
 
 interface GeminiContent {
@@ -36,14 +28,9 @@ interface GeminiResponse {
   candidates?: GeminiCandidate[];
 }
 
-interface ToolResolutionResult {
-  contents: GeminiContent[];
-  toolContext?: string;
-  refusalText?: string;
-}
-
 @Injectable()
 export class LlmService {
+  private readonly logger = new Logger(LlmService.name);
   private readonly apiKey = process.env.LLM_API_KEY ?? '';
   private readonly model = process.env.LLM_MODEL ?? 'gemini-2.0-flash';
   private readonly apiBase = 'https://generativelanguage.googleapis.com/v1beta/models';
@@ -55,29 +42,14 @@ export class LlmService {
       throw new ServiceError('LLM_UNAVAILABLE', 'LLM unavailable');
     }
 
-    if (!this.isAllowedTopic(input.newMessage)) {
-      yield* this.chunkText(
-        'I can only help with Northwind University topics such as admissions, departments, housing, academics, and campus services.',
-      );
-      return;
-    }
+    const contents = this.buildConversation(input.history, input.newMessage);
+    const systemText = this.buildSystemPrompt();
 
-    const prepared = await this.resolveTools(input);
-    if (prepared.refusalText) {
-      yield* this.chunkText(prepared.refusalText);
-      return;
-    }
-
-    const baseSystemText =
-      'You are the Northwind University support assistant. Answer only about university topics, and keep answers concise, accurate, and practical.';
-    const systemText = prepared.toolContext
-      ? `${baseSystemText}\n\nRelevant information retrieved:\n${prepared.toolContext}`
-      : baseSystemText;
-
+    this.logger.log('streamGenerateContent: start');
     const streamResponse = await this.fetchJsonOrStream(
       `${this.apiBase}/${this.model}:streamGenerateContent?alt=sse&key=${this.apiKey}`,
       {
-        contents: prepared.contents,
+        contents,
         systemInstruction: {
           parts: [{ text: systemText }],
         },
@@ -121,120 +93,26 @@ export class LlmService {
       }
     }
 
+    this.logger.log(`streamGenerateContent: done — finishReason=${finalFinishReason}`);
     if (finalFinishReason !== 'STOP') {
       throw new ServiceError('LLM_UNAVAILABLE', 'LLM unavailable');
     }
   }
 
-  private async resolveTools(input: LlmInput): Promise<ToolResolutionResult> {
-    const streamingContents = this.buildConversation(input.history, input.newMessage);
-    const resolutionContents = [...streamingContents];
-    const toolContextParts: string[] = [];
+  private buildSystemPrompt(): string {
+    const departments = ['computer science', 'admissions', 'housing'].map((key) => {
+      const d = this.departmentInfoService.getDepartmentInfo(key);
+      return `${d.department}: contact ${d.contact}, email ${d.email}, office ${d.office}, hours ${d.hours}`;
+    });
 
-    for (let step = 0; step < 4; step += 1) {
-      const response = await this.fetchJsonOrStream(
-        `${this.apiBase}/${this.model}:generateContent?key=${this.apiKey}`,
-        {
-          contents: resolutionContents,
-          tools: [
-            {
-              functionDeclarations: [
-                {
-                  name: 'get_department_info',
-                  description:
-                    'Look up Northwind University department contact information.',
-                  parameters: {
-                    type: 'OBJECT',
-                    properties: {
-                      department: {
-                        type: 'STRING',
-                        description: 'Department name, for example Computer Science',
-                      },
-                    },
-                    required: ['department'],
-                  },
-                },
-              ],
-            },
-          ],
-          systemInstruction: {
-            parts: [
-              {
-                text:
-                  'You are preparing a Northwind University assistant response. University-related questions — including admissions, applying, enrolling, deadlines, requirements, academics, housing, scholarships, campus services, and departments — are always on-topic. Reply REFUSE only if the question is completely unrelated to university life (e.g., cooking, sports scores, entertainment). Reply READY if you can answer without extra context. Call get_department_info if the user needs department contact details. Do not answer the user yet.',
-              },
-            ],
-          },
-          generationConfig: {
-            temperature: 0,
-          },
-        },
-      );
-
-      const payload = (await response.json()) as GeminiResponse;
-      const candidate = payload.candidates?.[0];
-      if (!candidate) {
-        throw new ServiceError('LLM_UNAVAILABLE', 'LLM unavailable');
-      }
-
-      const parts = candidate.content?.parts ?? [];
-      const functionCall = parts.find((part) => part.functionCall)?.functionCall;
-      if (functionCall) {
-        const result = this.runTool(functionCall.name, functionCall.args);
-        toolContextParts.push(JSON.stringify(result.content));
-        resolutionContents.push({
-          role: 'model',
-          parts: [{ functionCall }],
-        });
-        resolutionContents.push({
-          role: 'user',
-          parts: [
-            {
-              functionResponse: {
-                name: functionCall.name,
-                response: result,
-              },
-            },
-          ],
-        });
-        continue;
-      }
-
-      if (candidate.finishReason && candidate.finishReason !== 'STOP') {
-        throw new ServiceError('LLM_UNAVAILABLE', 'LLM unavailable');
-      }
-
-      const text = parts
-        .map((part) => part.text ?? '')
-        .join('')
-        .trim()
-        .toUpperCase();
-
-      if (text === 'REFUSE') {
-        return {
-          contents: streamingContents,
-          refusalText:
-            'I can only help with Northwind University topics such as admissions, departments, housing, academics, and campus services.',
-        };
-      }
-
-      return {
-        contents: streamingContents,
-        toolContext: toolContextParts.length > 0 ? toolContextParts.join('\n') : undefined,
-      };
-    }
-
-    throw new ServiceError('LLM_UNAVAILABLE', 'LLM unavailable');
-  }
-
-  private runTool(name: string, args: Record<string, unknown>) {
-    if (name !== 'get_department_info') {
-      throw new ServiceError('LLM_UNAVAILABLE', 'LLM unavailable');
-    }
-
-    return {
-      content: this.departmentInfoService.getDepartmentInfo(String(args.department ?? '')),
-    };
+    return [
+      'You are the Northwind University support assistant. Answer only questions related to Northwind University — admissions, academics, housing, departments, campus services, scholarships, and student life.',
+      'If a question is completely unrelated to university life, politely decline and redirect.',
+      'Keep answers concise, accurate, and practical.',
+      '',
+      'Department contacts:',
+      ...departments,
+    ].join('\n');
   }
 
   private buildConversation(history: Turn[], newMessage: string): GeminiContent[] {
@@ -251,44 +129,10 @@ export class LlmService {
     return contents;
   }
 
-  private isAllowedTopic(message: string): boolean {
-    const normalized = message.toLowerCase();
-    return [
-      'northwind',
-      'university',
-      'admission',
-      'apply',
-      'application',
-      'enroll',
-      'enrollment',
-      'deadline',
-      'requirement',
-      'department',
-      'course',
-      'class',
-      'program',
-      'degree',
-      'graduate',
-      'undergraduate',
-      'transfer',
-      'housing',
-      'dorm',
-      'campus',
-      'scholarship',
-      'financial aid',
-      'registrar',
-      'student',
-      'faculty',
-      'office',
-      'major',
-      'minor',
-      'academic',
-      'tuition',
-      'gpa',
-    ].some((keyword) => normalized.includes(keyword));
-  }
-
   private async fetchJsonOrStream(url: string, body: unknown): Promise<Response> {
+    const abort = new AbortController();
+    const timer = setTimeout(() => abort.abort(), 30_000);
+
     let response: Response;
     try {
       response = await fetch(url, {
@@ -297,12 +141,16 @@ export class LlmService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(body),
+        signal: abort.signal,
       });
     } catch (error) {
       throw new ServiceError('LLM_UNAVAILABLE', 'LLM unavailable', error);
+    } finally {
+      clearTimeout(timer);
     }
 
     if (!response.ok) {
+      this.logger.error(`Gemini returned HTTP ${response.status}`);
       throw new ServiceError('LLM_UNAVAILABLE', 'LLM unavailable', {
         status: response.status,
       });
@@ -329,12 +177,6 @@ export class LlmService {
       }
     } finally {
       reader.releaseLock();
-    }
-  }
-
-  private async *chunkText(text: string): AsyncIterable<string> {
-    for (const word of text.split(' ')) {
-      yield `${word} `;
     }
   }
 }
