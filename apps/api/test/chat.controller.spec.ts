@@ -2,6 +2,7 @@ import { HttpStatus } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { ChatController } from '../src/chat/chat.controller';
 import { ChatModule } from '../src/chat/chat.module';
+import { ServiceError } from '../src/common/service-error';
 import { LlmService } from '../src/llm/llm.service';
 import { SessionService } from '../src/sessions/session.service';
 import { KeyValueStore } from '../src/storage/key-value-store';
@@ -137,7 +138,7 @@ describe('ChatController', () => {
       .useValue({
         async *streamReply() {
           yield 'Partial ';
-          throw new Error('upstream failed');
+          throw new ServiceError('LLM_UNAVAILABLE', 'LLM unavailable');
         },
       })
       .compile();
