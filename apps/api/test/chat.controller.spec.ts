@@ -94,7 +94,7 @@ describe('ChatController', () => {
     await controller.postMessage(
       sessionId,
       { message: 'Tell me about campus housing.' },
-      { header: jest.fn(), on: jest.fn((_, callback) => callback()) } as never,
+      { header: jest.fn(), on: jest.fn() } as never,
       res as never,
     );
 
@@ -102,8 +102,8 @@ describe('ChatController', () => {
       'Content-Type',
       'text/event-stream',
     );
-    expect(res.write).toHaveBeenCalledWith('data: {"token":"Hello "}\n\n');
-    expect(res.write).toHaveBeenCalledWith('data: {"token":"student"}\n\n');
+    expect(res.write).toHaveBeenCalledWith('id: 0\ndata: {"token":"Hello "}\n\n');
+    expect(res.write).toHaveBeenCalledWith('id: 1\ndata: {"token":"student"}\n\n');
     expect(res.write).toHaveBeenCalledWith(
       'data: {"done":true,"turnIndex":1}\n\n',
     );
@@ -158,7 +158,7 @@ describe('ChatController', () => {
       'Content-Type',
       'text/event-stream',
     );
-    expect(res.write).toHaveBeenCalledWith('data: {"token":"Partial "}\n\n');
+    expect(res.write).toHaveBeenCalledWith('id: 0\ndata: {"token":"Partial "}\n\n');
     expect(res.write).toHaveBeenCalledWith(
       'data: {"error":"LLM unavailable"}\n\n',
     );
