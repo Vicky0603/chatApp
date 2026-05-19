@@ -181,7 +181,7 @@ export class LlmService {
             parts: [
               {
                 text:
-                  'You are preparing a Northwind University response. If the user is off-topic, reply with REFUSE. If you have enough information to answer, reply with READY. If you need department contact details, call get_department_info. Do not answer the user yet.',
+                  'You are preparing a Northwind University assistant response. University-related questions — including admissions, applying, enrolling, deadlines, requirements, academics, housing, scholarships, campus services, and departments — are always on-topic. Reply REFUSE only if the question is completely unrelated to university life (e.g., cooking, sports scores, entertainment). Reply READY if you can answer without extra context. Call get_department_info if the user needs department contact details. Do not answer the user yet.',
               },
             ],
           },
@@ -269,9 +269,20 @@ export class LlmService {
       'northwind',
       'university',
       'admission',
+      'apply',
+      'application',
+      'enroll',
+      'enrollment',
+      'deadline',
+      'requirement',
       'department',
       'course',
       'class',
+      'program',
+      'degree',
+      'graduate',
+      'undergraduate',
+      'transfer',
       'housing',
       'dorm',
       'campus',
@@ -285,6 +296,7 @@ export class LlmService {
       'minor',
       'academic',
       'tuition',
+      'gpa',
     ].some((keyword) => normalized.includes(keyword));
   }
 
