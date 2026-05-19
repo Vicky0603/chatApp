@@ -1,0 +1,14 @@
+{
+  "name": "streaming-domain-chat",
+  "private": true,
+  "workspaces": [
+    "apps/api",
+    "apps/web"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace @domain-chat/api && npm run build --workspace @domain-chat/web",
+    "dev": "npm run dev --workspace @domain-chat/api",
+    "test": "npm run test --workspace @domain-chat/api && npm run test --workspace @domain-chat/web"
+  }
+}
+
