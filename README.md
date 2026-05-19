@@ -4,7 +4,7 @@ This repo contains a NestJS backend and a Next.js frontend for a streaming unive
 
 ## Stack
 
-- `apps/api`: NestJS SSE backend with Redis-backed sessions, resumable stream state, Gemini-compatible LLM integration, and one tool-call loop
+- `apps/api`: NestJS SSE backend with Redis-backed sessions, resumable stream state, and Gemini LLM integration
 - `apps/web`: Next.js App Router frontend with an SSE BFF route and streaming chat UI
 - `docker-compose.yml`: starts Redis, NestJS, and Next.js with one command
 
@@ -31,7 +31,7 @@ The intent is:
 1. Copy `env.example` to `.env`.
 2. Set:
    - `LLM_API_KEY`
-   - `LLM_MODEL=gemini-2.0-flash`
+   - `LLM_MODEL=gemini-2.0-flash-lite` (higher free-tier quota) or `gemini-2.0-flash`
    - `REDIS_URL=redis://localhost:6379`
    - optionally `NESTJS_PORT`, `NEXTJS_PORT`, and `NESTJS_BASE_URL=http://localhost:3001`
 3. Install dependencies with `npm install`.
@@ -55,15 +55,15 @@ Redis connectivity uses `REDIS_URL`. No API keys or provider secrets are committ
 
 ## NestJS Streaming Contract
 
-The backend requirement in section `2 · NestJS Backend — Streaming + Tool Calling` is implemented as follows:
-
 - `LlmService` accepts `{ history: Turn[], newMessage: string }` and forwards the full conversation history to the LLM before streaming.
-- `LlmService.streamReply()` returns an async iterable of token chunks.
+- `LlmService.streamReply()` returns an `AsyncGenerator<string>` of token chunks.
+- Department contact data is embedded in the system prompt — no separate tool-calling round trip.
 - `POST /chat/:sessionId/message` responds as `text/event-stream`.
 - Each streamed token is emitted as `data: {"token":"..."}`.
 - On successful completion the final event is `data: {"done":true,"turnIndex":N}`.
 - The assistant reply is stored in session history only after the stream completes successfully.
-- If the LLM fails mid-stream, the controller emits `data: {"error":"LLM unavailable"}` and closes the stream.
+- If the LLM fails mid-stream, the controller emits `data: {"error":"..."}` and closes the stream.
+- The Gemini streaming endpoint is `:generateContent?alt=sse` — the older `:streamGenerateContent` path no longer exists.
 
 Relevant files:
 
@@ -91,10 +91,10 @@ For Docker Compose, the API container talks to Redis at `redis://redis:6379` int
    A: The assistant answers from the Northwind University policy domain and explains the minimum GPA rule and where students can confirm it.
 
 2. Q: `Who should I contact in the Computer Science department?`
-   A: The assistant triggers the `get_department_info` tool, receives the department record from NestJS, then streams back the contact person, email, office, and hours.
+   A: The assistant answers from department contact data embedded in the system prompt, streaming back the contact person, email, office, and hours.
 
 3. Q: `Tell me the best way to season a cast-iron pan.`
-   A: The assistant refuses because the system is limited to Northwind University support topics. The refusal is enforced by domain gating plus model finish-state checks, not prompt compliance alone.
+   A: The assistant refuses because the system prompt limits it to Northwind University support topics.
 
 These three examples are intentional:
 
@@ -145,7 +145,6 @@ That design keeps the backend base URL and LLM integration hidden from browser n
 - mocked HTTP
 - full history passed correctly
 - token stream forwarded
-- tool call loop executed before streaming
 
 `ChatController` in [apps/api/test/chat.controller.spec.ts](/mnt/c/Users/vikto/Downloads/test/apps/api/test/chat.controller.spec.ts)
 
