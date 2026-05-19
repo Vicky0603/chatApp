@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ChatController } from './chat.controller';
+import { ChatStreamService } from './chat-stream.service';
 import { SessionService } from '../sessions/session.service';
 import { LlmService } from '../llm/llm.service';
 import { DepartmentInfoService } from '../tools/department-info.service';
@@ -16,6 +17,7 @@ import { StreamStateService } from '../streams/stream-state.service';
     },
     SessionService,
     StreamStateService,
+    ChatStreamService,
     LlmService,
     DepartmentInfoService,
   ],

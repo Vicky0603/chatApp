@@ -8,6 +8,24 @@ This repo contains a NestJS backend and a Next.js frontend for a streaming unive
 - `apps/web`: Next.js App Router frontend with an SSE BFF route and streaming chat UI
 - `docker-compose.yml`: starts Redis, NestJS, and Next.js with one command
 
+## Architecture
+
+The backend follows a conventional MVC-style NestJS layout with OOP service boundaries:
+
+- Controllers:
+  HTTP transport only, for example [apps/api/src/chat/chat.controller.ts](/mnt/c/Users/vikto/Downloads/test/apps/api/src/chat/chat.controller.ts)
+- Services:
+  application behavior and orchestration, for example [apps/api/src/chat/chat-stream.service.ts](/mnt/c/Users/vikto/Downloads/test/apps/api/src/chat/chat-stream.service.ts), [apps/api/src/llm/llm.service.ts](/mnt/c/Users/vikto/Downloads/test/apps/api/src/llm/llm.service.ts), and [apps/api/src/sessions/session.service.ts](/mnt/c/Users/vikto/Downloads/test/apps/api/src/sessions/session.service.ts)
+- Models/state:
+  chat turns, session records, and persisted stream state handled through typed interfaces and storage services
+
+The intent is:
+
+- thin controllers
+- encapsulated services with single responsibilities
+- explicit dependency injection between collaborating classes
+- transport concerns separated from LLM, session, and storage concerns
+
 ## Local Setup
 
 1. Copy `env.example` to `.env`.
