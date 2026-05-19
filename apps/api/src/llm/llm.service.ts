@@ -193,7 +193,7 @@ export class LlmService {
 
       const payload = (await response.json()) as GeminiResponse;
       const candidate = payload.candidates?.[0];
-      if (!candidate || candidate.finishReason !== 'STOP') {
+      if (!candidate) {
         throw new ServiceError('LLM_UNAVAILABLE', 'LLM unavailable');
       }
 
@@ -217,6 +217,10 @@ export class LlmService {
           ],
         });
         continue;
+      }
+
+      if (candidate.finishReason && candidate.finishReason !== 'STOP') {
+        throw new ServiceError('LLM_UNAVAILABLE', 'LLM unavailable');
       }
 
       const text = parts

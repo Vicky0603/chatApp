@@ -178,5 +178,51 @@ describe('LlmService', () => {
       ]),
     );
   });
+
+  it('handles a tool call response with no finishReason field', async () => {
+    jest
+      .spyOn(global, 'fetch')
+      .mockResolvedValueOnce(
+        createJsonResponse({
+          candidates: [
+            {
+              // finishReason intentionally absent — Gemini omits it on function calls
+              content: {
+                parts: [
+                  {
+                    functionCall: {
+                      name: 'get_department_info',
+                      args: { department: 'admissions' },
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        createJsonResponse({
+          candidates: [{ finishReason: 'STOP', content: { parts: [{ text: 'READY' }] } }],
+        }),
+      )
+      .mockResolvedValueOnce(
+        createSseResponse([
+          'data: {"candidates":[{"content":{"parts":[{"text":"Admissions info."}]},"finishReason":"STOP"}]}\n\n',
+        ]),
+      );
+
+    const service = new LlmService(new DepartmentInfoService());
+    const tokens: string[] = [];
+
+    for await (const token of service.streamReply({
+      history: [],
+      newMessage: 'Tell me about admissions.',
+    })) {
+      tokens.push(token);
+    }
+
+    expect(tokens.join('')).toContain('Admissions info.');
+  });
 });
 
