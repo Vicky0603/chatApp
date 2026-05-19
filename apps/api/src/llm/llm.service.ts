@@ -71,6 +71,30 @@ export class LlmService {
       `${this.apiBase}/${this.model}:streamGenerateContent?alt=sse&key=${this.apiKey}`,
       {
         contents: prepared.contents,
+        tools: [
+          {
+            functionDeclarations: [
+              {
+                name: 'get_department_info',
+                description:
+                  'Look up Northwind University department contact information.',
+                parameters: {
+                  type: 'OBJECT',
+                  properties: {
+                    department: {
+                      type: 'STRING',
+                      description: 'Department name, for example Computer Science',
+                    },
+                  },
+                  required: ['department'],
+                },
+              },
+            ],
+          },
+        ],
+        toolConfig: {
+          functionCallingConfig: { mode: 'NONE' },
+        },
         systemInstruction: {
           parts: [
             {
