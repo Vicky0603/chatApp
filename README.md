@@ -15,7 +15,7 @@ This repo contains a NestJS backend and a Next.js frontend for a streaming unive
    - `LLM_API_KEY`
    - `LLM_MODEL=gemini-2.0-flash`
    - `REDIS_URL=redis://localhost:6379`
-   - optionally `NESTJS_PORT`, `NEXTJS_PORT`, and `NESTJS_BASE_URL`
+   - optionally `NESTJS_PORT`, `NEXTJS_PORT`, and `NESTJS_BASE_URL=http://localhost:3001`
 3. Install dependencies with `npm install`.
 4. Start Redis locally.
    - example: `docker run --rm -p 6379:6379 redis:7-alpine`
@@ -63,6 +63,8 @@ docker compose up --build
 ```
 
 That builds both workspaces and starts Redis, NestJS on port `3001`, and Next.js on port `3000`.
+
+For Docker Compose, the web container talks to the API at `http://api:3001` internally. Do not set `NESTJS_BASE_URL=http://localhost:3001` inside the web container, or the BFF will fail with `ECONNREFUSED`.
 
 ## Sample Q&A
 

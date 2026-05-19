@@ -11,10 +11,13 @@ export async function POST() {
   const upstream = await fetch(`${BACKEND_URL}/session`, {
     method: 'POST',
     cache: 'no-store',
-  });
+  }).catch(() => null);
 
-  if (!upstream.ok) {
-    return Response.json({ error: 'Unable to create session' }, { status: 502 });
+  if (!upstream || !upstream.ok) {
+    return Response.json(
+      { error: 'Chat backend unavailable' },
+      { status: 502 },
+    );
   }
 
   const payload = (await upstream.json()) as { sessionId: string };

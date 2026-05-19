@@ -1,7 +1,50 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { TextEncoder } from 'util';
 import { ChatBox } from '@/components/ChatBox';
 
 const encoder = new TextEncoder();
+
+function createPlainResponse(init: {
+  ok?: boolean;
+  status: number;
+  contentType?: string;
+  json?: () => Promise<unknown>;
+  chunks?: string[];
+}): Response {
+  const chunks = init.chunks ?? [];
+
+  return {
+    ok: init.ok ?? init.status < 400,
+    status: init.status,
+    headers: {
+      get: (name: string) =>
+        name.toLowerCase() === 'content-type' ? (init.contentType ?? null) : null,
+    },
+    json:
+      init.json ??
+      (async () => {
+        return {};
+      }),
+    body: chunks.length
+      ? {
+          getReader() {
+            let index = 0;
+            return {
+              async read() {
+                if (index >= chunks.length) {
+                  return { done: true, value: undefined };
+                }
+
+                const value = encoder.encode(chunks[index]);
+                index += 1;
+                return { done: false, value };
+              },
+            };
+          },
+        }
+      : null,
+  } as unknown as Response;
+}
 
 describe('ChatBox', () => {
   beforeEach(() => {
@@ -73,28 +116,17 @@ describe('ChatBox', () => {
 
   it('streams tokens into the bot bubble and removes the cursor on done', async () => {
     (global.fetch as jest.Mock)
-      .mockResolvedValueOnce(new Response(null, { status: 201 }))
+      .mockResolvedValueOnce(createPlainResponse({ status: 201 }))
       .mockResolvedValueOnce(
-        new Response(
-          new ReadableStream({
-            start(controller) {
-              controller.enqueue(
-                encoder.encode('id: 0\ndata: {"token":"Northwind "}\n\n'),
-              );
-              controller.enqueue(
-                encoder.encode('id: 1\ndata: {"token":"Housing"}\n\n'),
-              );
-              controller.enqueue(
-                encoder.encode('data: {"done":true,"turnIndex":1}\n\n'),
-              );
-              controller.close();
-            },
-          }),
-          {
-            status: 200,
-            headers: { 'content-type': 'text/event-stream' },
-          },
-        ),
+        createPlainResponse({
+          status: 200,
+          contentType: 'text/event-stream',
+          chunks: [
+            'id: 0\ndata: {"token":"Northwind "}\n\n',
+            'id: 1\ndata: {"token":"Housing"}\n\n',
+            'data: {"done":true,"turnIndex":1}\n\n',
+          ],
+        }),
       );
 
     render(<ChatBox initialMessages={[]} />);
@@ -112,41 +144,23 @@ describe('ChatBox', () => {
 
   it('retries a dropped stream with Last-Event-ID', async () => {
     (global.fetch as jest.Mock)
-      .mockResolvedValueOnce(new Response(null, { status: 201 }))
+      .mockResolvedValueOnce(createPlainResponse({ status: 201 }))
       .mockResolvedValueOnce(
-        new Response(
-          new ReadableStream({
-            start(controller) {
-              controller.enqueue(
-                encoder.encode('id: 0\ndata: {"token":"Northwind "}\n\n'),
-              );
-              controller.close();
-            },
-          }),
-          {
-            status: 200,
-            headers: { 'content-type': 'text/event-stream' },
-          },
-        ),
+        createPlainResponse({
+          status: 200,
+          contentType: 'text/event-stream',
+          chunks: ['id: 0\ndata: {"token":"Northwind "}\n\n'],
+        }),
       )
       .mockResolvedValueOnce(
-        new Response(
-          new ReadableStream({
-            start(controller) {
-              controller.enqueue(
-                encoder.encode('id: 1\ndata: {"token":"Housing"}\n\n'),
-              );
-              controller.enqueue(
-                encoder.encode('data: {"done":true,"turnIndex":1}\n\n'),
-              );
-              controller.close();
-            },
-          }),
-          {
-            status: 200,
-            headers: { 'content-type': 'text/event-stream' },
-          },
-        ),
+        createPlainResponse({
+          status: 200,
+          contentType: 'text/event-stream',
+          chunks: [
+            'id: 1\ndata: {"token":"Housing"}\n\n',
+            'data: {"done":true,"turnIndex":1}\n\n',
+          ],
+        }),
       );
 
     render(<ChatBox initialMessages={[]} />);

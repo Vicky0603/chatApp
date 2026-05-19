@@ -84,7 +84,19 @@ export async function POST(request: Request) {
     },
     body,
     cache: 'no-store',
-  });
+  }).catch(() => null);
+
+  if (!upstream) {
+    return Response.json(
+      { error: 'Upstream unavailable' },
+      {
+        status: 502,
+        headers: {
+          'Set-Cookie': rateCookieValue(sessionId, nextTimestamps),
+        },
+      },
+    );
+  }
 
   if (upstream.status === 404 || upstream.status === 410) {
     return Response.json(

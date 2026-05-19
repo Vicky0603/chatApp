@@ -26,7 +26,7 @@ services:
       - .env
     environment:
       NEXTJS_PORT: ${NEXTJS_PORT:-3000}
-      NESTJS_BASE_URL: ${NESTJS_BASE_URL:-http://api:3001}
+      NESTJS_BASE_URL: http://api:3001
     depends_on:
       - api
     ports:
