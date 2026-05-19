@@ -146,19 +146,14 @@ describe('LlmService', () => {
     }
 
     expect(tokens.join('')).toContain('Elena Park');
+
+    // Second resolution call includes function call protocol
     const secondBody = JSON.parse(String(fetchMock.mock.calls[1][1]?.body));
     expect(secondBody.contents).toEqual(
       expect.arrayContaining([
         {
           role: 'model',
-          parts: [
-            {
-              functionCall: {
-                name: 'get_department_info',
-                args: { department: 'Computer Science' },
-              },
-            },
-          ],
+          parts: [{ functionCall: { name: 'get_department_info', args: { department: 'Computer Science' } } }],
         },
         {
           role: 'user',
@@ -166,17 +161,20 @@ describe('LlmService', () => {
             {
               functionResponse: {
                 name: 'get_department_info',
-                response: {
-                  content: expect.objectContaining({
-                    email: 'cs-office@northwind.edu',
-                  }),
-                },
+                response: { content: expect.objectContaining({ email: 'cs-office@northwind.edu' }) },
               },
             },
           ],
         },
       ]),
     );
+
+    // Streaming call uses clean contents (no function call protocol) and injects tool result in system instruction
+    const streamBody = JSON.parse(String(fetchMock.mock.calls[2][1]?.body));
+    expect(streamBody.contents).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ parts: expect.arrayContaining([expect.objectContaining({ functionCall: expect.anything() })]) })]),
+    );
+    expect(streamBody.systemInstruction.parts[0].text).toContain('cs-office@northwind.edu');
   });
 
   it('handles a tool call response with no finishReason field', async () => {

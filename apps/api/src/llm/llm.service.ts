@@ -38,6 +38,7 @@ interface GeminiResponse {
 
 interface ToolResolutionResult {
   contents: GeminiContent[];
+  toolContext?: string;
   refusalText?: string;
 }
 
@@ -67,41 +68,18 @@ export class LlmService {
       return;
     }
 
+    const baseSystemText =
+      'You are the Northwind University support assistant. Answer only about university topics, and keep answers concise, accurate, and practical.';
+    const systemText = prepared.toolContext
+      ? `${baseSystemText}\n\nRelevant information retrieved:\n${prepared.toolContext}`
+      : baseSystemText;
+
     const streamResponse = await this.fetchJsonOrStream(
       `${this.apiBase}/${this.model}:streamGenerateContent?alt=sse&key=${this.apiKey}`,
       {
         contents: prepared.contents,
-        tools: [
-          {
-            functionDeclarations: [
-              {
-                name: 'get_department_info',
-                description:
-                  'Look up Northwind University department contact information.',
-                parameters: {
-                  type: 'OBJECT',
-                  properties: {
-                    department: {
-                      type: 'STRING',
-                      description: 'Department name, for example Computer Science',
-                    },
-                  },
-                  required: ['department'],
-                },
-              },
-            ],
-          },
-        ],
-        toolConfig: {
-          functionCallingConfig: { mode: 'NONE' },
-        },
         systemInstruction: {
-          parts: [
-            {
-              text:
-                'You are the Northwind University support assistant. Answer only about university topics, and keep answers concise, accurate, and practical.',
-            },
-          ],
+          parts: [{ text: systemText }],
         },
         generationConfig: {
           temperature: 0.3,
@@ -149,13 +127,15 @@ export class LlmService {
   }
 
   private async resolveTools(input: LlmInput): Promise<ToolResolutionResult> {
-    const contents = this.buildConversation(input.history, input.newMessage);
+    const streamingContents = this.buildConversation(input.history, input.newMessage);
+    const resolutionContents = [...streamingContents];
+    const toolContextParts: string[] = [];
 
     for (let step = 0; step < 4; step += 1) {
       const response = await this.fetchJsonOrStream(
         `${this.apiBase}/${this.model}:generateContent?key=${this.apiKey}`,
         {
-          contents,
+          contents: resolutionContents,
           tools: [
             {
               functionDeclarations: [
@@ -201,11 +181,12 @@ export class LlmService {
       const functionCall = parts.find((part) => part.functionCall)?.functionCall;
       if (functionCall) {
         const result = this.runTool(functionCall.name, functionCall.args);
-        contents.push({
+        toolContextParts.push(JSON.stringify(result.content));
+        resolutionContents.push({
           role: 'model',
           parts: [{ functionCall }],
         });
-        contents.push({
+        resolutionContents.push({
           role: 'user',
           parts: [
             {
@@ -231,13 +212,16 @@ export class LlmService {
 
       if (text === 'REFUSE') {
         return {
-          contents,
+          contents: streamingContents,
           refusalText:
             'I can only help with Northwind University topics such as admissions, departments, housing, academics, and campus services.',
         };
       }
 
-      return { contents };
+      return {
+        contents: streamingContents,
+        toolContext: toolContextParts.length > 0 ? toolContextParts.join('\n') : undefined,
+      };
     }
 
     throw new ServiceError('LLM_UNAVAILABLE', 'LLM unavailable');
