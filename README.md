@@ -171,6 +171,8 @@ Additional backend assertions in the same controller spec:
 Screenshots
 <img width="1582" height="756" alt="image" src="https://github.com/user-attachments/assets/0d6936bb-cda1-4bd0-b9c2-d69b3943a4b9" />
 <img width="1248" height="245" alt="image" src="https://github.com/user-attachments/assets/0bd2c33d-8703-4aaf-9ce3-e7a8ac5f0f3b" />
+<img width="1166" height="848" alt="image" src="https://github.com/user-attachments/assets/166e545d-7594-4165-93dc-5cd78af31c12" />
+
 
 
 
