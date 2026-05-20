@@ -177,4 +177,38 @@ describe('ChatBox', () => {
       }),
     );
   });
+
+  it('submits the form when Enter is pressed without Shift', async () => {
+    jest.spyOn(global, 'fetch').mockImplementation(
+      () => new Promise(() => undefined) as Promise<Response>,
+    );
+
+    render(<ChatBox initialMessages={[]} />);
+
+    fireEvent.change(screen.getByLabelText('Message'), {
+      target: { value: 'Enter key test' },
+    });
+    fireEvent.keyDown(screen.getByLabelText('Message'), {
+      key: 'Enter',
+      shiftKey: false,
+    });
+
+    expect(await screen.findByText('Enter key test')).toBeInTheDocument();
+  });
+
+  it('does not submit when Shift+Enter is pressed', () => {
+    const fetchSpy = jest.spyOn(global, 'fetch');
+
+    render(<ChatBox initialMessages={[]} />);
+
+    fireEvent.change(screen.getByLabelText('Message'), {
+      target: { value: 'Not submitted' },
+    });
+    fireEvent.keyDown(screen.getByLabelText('Message'), {
+      key: 'Enter',
+      shiftKey: true,
+    });
+
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
 });

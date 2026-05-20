@@ -4,7 +4,8 @@
       "Bash(docker compose *)",
       "Bash(xargs cat)",
       "Bash(git *)",
-      "Bash(docker exec *)"
+amending       "Bash(docker exec *)",
+      "Bash(npm test *)"
     ]
   }
 }
