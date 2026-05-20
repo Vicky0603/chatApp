@@ -168,6 +168,12 @@ Additional backend assertions in the same controller spec:
 - optimistic bubble appears before fetch resolves
 - rollback on error
 
+Screenshots
+<img width="1582" height="756" alt="image" src="https://github.com/user-attachments/assets/0d6936bb-cda1-4bd0-b9c2-d69b3943a4b9" />
+<img width="1248" height="245" alt="image" src="https://github.com/user-attachments/assets/0bd2c33d-8703-4aaf-9ce3-e7a8ac5f0f3b" />
+
+
+
 `/api/chat` Route Handler in [apps/web/__tests__/api-chat-route.test.ts](/mnt/c/Users/vikto/Downloads/test/apps/web/__tests__/api-chat-route.test.ts)
 
 - proxies the stream correctly
