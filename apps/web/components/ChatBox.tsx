@@ -94,24 +94,20 @@ export function ChatBox({ initialMessages }: { initialMessages: ChatMessage[] })
 
     try {
       await ensureSession();
-      startTransition(() => {
-        setMessages((current) => [...current, userMessage, assistantMessage]);
-        setPendingUser(null);
-        setIsStreaming(true);
-      });
+      setMessages((current) => [...current, userMessage, assistantMessage]);
+      setPendingUser(null);
+      setIsStreaming(true);
       await streamAssistantReply(messageText, assistantMessage.id);
       setIsStreaming(false);
     } catch (error) {
       setPendingUser(null);
       setIsStreaming(false);
       setToast(error instanceof Error ? error.message : 'Request failed');
-      startTransition(() => {
-        setMessages((current) =>
-          current.filter(
-            (entry) => entry.id !== userMessage.id && entry.id !== assistantMessage.id,
-          ),
-        );
-      });
+      setMessages((current) =>
+        current.filter(
+          (entry) => entry.id !== userMessage.id && entry.id !== assistantMessage.id,
+        ),
+      );
     }
   }
 
@@ -187,15 +183,13 @@ export function ChatBox({ initialMessages }: { initialMessages: ChatMessage[] })
             }
 
             if (payload.token) {
-              startTransition(() => {
-                setMessages((current) =>
-                  current.map((entry) =>
-                    entry.id === assistantMessageId
-                      ? { ...entry, content: entry.content + payload.token }
-                      : entry,
-                  ),
-                );
-              });
+              setMessages((current) =>
+                current.map((entry) =>
+                  entry.id === assistantMessageId
+                    ? { ...entry, content: entry.content + payload.token }
+                    : entry,
+                ),
+              );
             }
 
             if (payload.done) {
@@ -258,6 +252,12 @@ export function ChatBox({ initialMessages }: { initialMessages: ChatMessage[] })
           id="chat-message"
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' && !event.shiftKey) {
+              event.preventDefault();
+              event.currentTarget.form?.requestSubmit();
+            }
+          }}
           placeholder="Ask about Northwind University"
         />
         <button type="submit" disabled={isStreaming || isPending}>

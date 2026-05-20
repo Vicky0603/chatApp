@@ -32,7 +32,7 @@ interface GeminiResponse {
 export class LlmService {
   private readonly logger = new Logger(LlmService.name);
   private readonly apiKey = process.env.LLM_API_KEY ?? '';
-  private readonly model = process.env.LLM_MODEL ?? 'gemini-2.0-flash';
+  private readonly model = process.env.LLM_MODEL ?? 'gemini-2.5-flash';
   private readonly apiBase = 'https://generativelanguage.googleapis.com/v1beta/models';
 
   constructor(private readonly departmentInfoService: DepartmentInfoService) {}
@@ -45,7 +45,7 @@ export class LlmService {
     const contents = this.buildConversation(input.history, input.newMessage);
     const systemText = this.buildSystemPrompt();
 
-    this.logger.log('streamGenerateContent: start');
+    this.logger.log('streamReply: start');
     const streamResponse = await this.post(
       `${this.apiBase}/${this.model}:generateContent?alt=sse&key=${this.apiKey}`,
       {
@@ -69,12 +69,12 @@ export class LlmService {
 
     for await (const chunk of this.readStream(streamResponse.body)) {
       buffer += decoder.decode(chunk, { stream: true });
-      const events = buffer.split('\n\n');
+      const events = buffer.split(/\r?\n\r?\n/);
       buffer = events.pop() ?? '';
 
       for (const event of events) {
         const line = event
-          .split('\n')
+          .split(/\r?\n/)
           .find((candidateLine) => candidateLine.startsWith('data: '));
 
         if (!line) {
@@ -93,7 +93,7 @@ export class LlmService {
       }
     }
 
-    this.logger.log(`streamGenerateContent: done — finishReason=${finalFinishReason}`);
+    this.logger.log(`streamReply: done — finishReason=${finalFinishReason}`);
     if (finalFinishReason !== 'STOP') {
       throw new ServiceError('LLM_UNAVAILABLE', 'LLM unavailable');
     }

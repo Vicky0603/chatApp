@@ -1,5 +1,3 @@
-export const runtime = 'edge';
-
 import { cookies } from 'next/headers';
 import { BACKEND_URL, RATE_LIMIT_COOKIE, SESSION_COOKIE } from '@/lib/config';
 
